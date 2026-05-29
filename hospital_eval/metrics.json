@@ -1,0 +1,38 @@
+{
+  "dataset": "Epic and CSCR hospital Dataset/Test",
+  "model_weights": "models/best_model.pth",
+  "total_images": 1857,
+  "overall_accuracy": 0.9736133548734518,
+  "per_class_accuracy": {
+    "glioma": 0.9270315091210614,
+    "meningioma": 0.9908256880733946,
+    "notumor": 0.9974293059125964,
+    "pituitary": 1.0
+  },
+  "confusion_matrix": [
+    [
+      559,
+      27,
+      13,
+      4
+    ],
+    [
+      1,
+      432,
+      0,
+      3
+    ],
+    [
+      0,
+      1,
+      388,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      429
+    ]
+  ]
+}

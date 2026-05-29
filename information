@@ -1,0 +1,108 @@
+KGAT_2032f9b483fd56b97d16f08f8c012d67
+You’re thinking too narrowly if you only see “MRI brain scans.” Radiology is a whole toolkit of imaging modalities, each built for a different physical principle and clinical purpose. A radiologist doesn’t “have scans” — they choose **modalities + protocols** depending on what they want to see.
+
+Here’s the real landscape:
+
+---
+
+## 1. X-ray (Radiography)
+
+Fast, cheap, first-line imaging.
+
+* Bones (fractures, joints)
+* Chest X-ray (lungs, heart size, infections like pneumonia)
+* Dental imaging
+
+**Core idea:** dense structures absorb X-rays → show up white.
+
+---
+
+## 2. CT Scan (Computed Tomography)
+
+This is basically “3D X-ray slices.”
+
+* Brain hemorrhage (super important in emergencies)
+* Lung disease (nodules, cancer, COVID damage)
+* Abdomen (appendicitis, tumors, trauma)
+* Bone reconstruction
+
+**Why it matters:** way faster than MRI, excellent for emergencies.
+
+---
+
+## 3. MRI (Magnetic Resonance Imaging)
+
+You mentioned brain MRI — but it’s much broader:
+
+* Brain (tumors, stroke, MS, epilepsy)
+* Spine (disc herniation, nerve compression)
+* Joints (ligaments, cartilage)
+* Abdomen (liver, prostate, uterus)
+
+**Core idea:** uses magnetic fields + hydrogen response → insane soft-tissue detail.
+
+---
+
+## 4. Ultrasound (Echo)
+
+Real-time imaging using sound waves.
+
+* Pregnancy (fetus monitoring)
+* Heart (echocardiography)
+* Abdomen (liver, gallbladder, kidneys)
+* Blood flow (Doppler)
+
+**Key strength:** no radiation + real-time motion.
+
+---
+
+## 5. PET Scan (Positron Emission Tomography)
+
+Functional imaging (not anatomy-focused).
+
+* Cancer detection and spread
+* Brain metabolism studies (Alzheimer, epilepsy focus zones)
+
+Often combined with CT → PET-CT.
+
+---
+
+## 6. Mammography
+
+Specialized low-dose X-ray for breasts.
+
+* Breast cancer screening
+
+---
+
+## 7. Fluoroscopy
+
+Real-time X-ray video.
+
+* Swallow studies
+* Digestive tract
+* Catheter guidance in procedures
+
+---
+
+## 8. Angiography (vessels imaging)
+
+Visualizes blood vessels.
+
+* Blocked arteries (heart, brain)
+* Stroke interventions
+  Often CT angiography or MR angiography now.
+
+---
+
+# The CS/AI perspective (important)
+
+Think of radiology like this:
+
+* **X-ray / CT → dense spatial data (2D/3D grids)**
+* **MRI → multi-sequence volumetric tensors**
+* **Ultrasound → noisy real-time signal processing**
+* **PET → sparse functional scalar fields over space**
+
+That’s why AI in radiology is huge: segmentation, classification, anomaly detection, multimodal fusion.
+

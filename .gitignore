@@ -1,0 +1,21 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+*.pth
+learning_curves.png
+models/
+grid_search_results_*/
+*.png
+history.json
+eval_metrics.json
+segmentation_models/
+
+# Data directories - large files not included in repo
+data/
+*.nii
+*.nii.gz
+*.dcm
+
