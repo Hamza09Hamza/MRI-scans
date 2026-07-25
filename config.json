@@ -6,9 +6,9 @@
     "num_classes": 4
   },
   "model": {
-    "name": "TumorCNN_Clinical",
+    "name": "TumorCNN_Research",
     "backbone": "ResNet50_ImageNet",
-    "description": "ResNet50 (ImageNet pretrained) + robust clinical classifier head"
+    "description": "ImageNet-pretrained ResNet50 with a regularized research classification head"
   },
   "training": {
     "epochs": 80,
