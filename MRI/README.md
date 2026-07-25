@@ -182,7 +182,7 @@ with torch.no_grad():
     logits = model(batch)
     probabilities = torch.softmax(logits, dim=1)
 
-classes = ["glioma", "meningioma", "no_tumour", "pituitary"]
+classes = ["glioma", "meningioma", "notumor", "pituitary"]
 predicted_index = probabilities.argmax(dim=1).item()
 print(classes[predicted_index], probabilities[0, predicted_index].item())
 ```
