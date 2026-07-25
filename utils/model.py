@@ -5,10 +5,11 @@ from torchvision import models
 
 class TumorCNN(nn.Module):
     """
-    Clinical production model: ResNet50 + robust classifier.
+    Research classifier built from an ImageNet-pretrained ResNet50 backbone
+    and a regularized multi-layer classification head.
 
-    Pretrained on ImageNet (1.2M images) then fine-tuned on medical data.
-    Strong regularization (dropout, batch norm) ensures generalization.
+    Dropout and batch normalization are implementation choices; they do not
+    by themselves establish clinical robustness or generalization.
     """
 
     def __init__(self, config):
@@ -16,14 +17,14 @@ class TumorCNN(nn.Module):
         num_classes = config["data"]["num_classes"]
         dropout = config["training"]["dropout_rate"]
 
-        # ResNet50 backbone: pretrained on ImageNet
-        self.backbone = models.resnet50(weights='DEFAULT')
+        # ResNet50 backbone pretrained on ImageNet.
+        self.backbone = models.resnet50(weights="DEFAULT")
 
-        # Replace final layer with feature extractor
+        # Replace the original ImageNet classifier with a feature extractor.
         num_features = self.backbone.fc.in_features  # 2048
         self.backbone.fc = nn.Identity()
 
-        # Clinical-grade classifier: robust multi-layer head
+        # Regularized research classifier head.
         self.classifier = nn.Sequential(
             nn.Linear(num_features, 1024),
             nn.BatchNorm1d(1024),

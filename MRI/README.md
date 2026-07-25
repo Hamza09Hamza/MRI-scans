@@ -1,468 +1,234 @@
-# 🧠 Brain Tumor Classification Model
+# Brain MRI Tumour Classification
 
-Production-ready ResNet50-based classifier for brain MRI tumor identification achieving **97.36% accuracy** on real hospital data.
+This directory documents the brain MRI classification work in the `MRI-scans` repository.
 
-## What This Model Does
+The project trains a ResNet50-based image classifier to distinguish four classes:
 
-Classifies brain MRI images into 4 categories:
-- **Normal** - No tumor detected
-- **Pituitary** - Pituitary gland tumor
-- **Meningioma** - Meningioma tumor  
-- **Glioma** - Glioma tumor
+- **No tumour**
+- **Pituitary tumour**
+- **Meningioma**
+- **Glioma**
 
-## Quick Start
+> **Research prototype only.** The model is not clinically validated and must not be used for diagnosis, triage, treatment, or any other patient-care decision.
 
-### 1. Installation (2 minutes)
+## Current confirmed evaluation statement
+
+The currently confirmed aggregate result for the project is:
+
+| Item | Confirmed value |
+|---|---|
+| Evaluation size | **3,482 images** |
+| Evaluation composition | **Combined images from two datasets used by the project** |
+| Overall accuracy | **Approximately 97%** |
+
+This should be described as a **combined two-dataset evaluation**, not as a purely external hospital validation.
+
+### Why the previous documentation was changed
+
+The previous README mixed information from different evaluation artifacts:
+
+- `hospital_eval/metrics.json` records a legacy hospital-only run containing **1,857 images** and an accuracy near 97%.
+- The confusion matrix printed in the old README contained **3,482 images**.
+- That confusion matrix and the surrounding accuracy/per-class table did not describe one internally consistent experiment.
+
+To avoid publishing false precision, the contradictory confusion matrix and per-class table have been removed. The repository now reports only the confirmed aggregate result above until the current 3,482-image combined evaluation is rerun and exports one matching set of metrics.
+
+## Model architecture
+
+The current model implementation is defined in [`../utils/model.py`](../utils/model.py).
+
+```text
+Input image: 128 x 128 RGB
+        |
+        v
+ResNet50 backbone pretrained on ImageNet
+        |
+        v
+2048-dimensional feature vector
+        |
+        v
+Linear 2048 -> 1024
+BatchNorm + ReLU + Dropout
+        |
+        v
+Linear 1024 -> 512
+BatchNorm + ReLU + Dropout
+        |
+        v
+Linear 512 -> 256
+BatchNorm + ReLU + Dropout
+        |
+        v
+Linear 256 -> 4 class logits
+```
+
+The configuration in [`../config.json`](../config.json) currently specifies:
+
+- 128 x 128 input images
+- four output classes
+- batch size 32
+- learning rate `0.0001`
+- dropout rate `0.5`
+- up to 80 epochs
+- Adam optimization
+- `ReduceLROnPlateau` scheduling
+
+These are implementation settings, not proof that the model is clinically robust.
+
+## Data sources
+
+The project has used two image sources during its development:
+
+- a public Kaggle brain-tumour classification dataset
+- the Epic & CSCR Hospital dataset used by the repository's hospital-evaluation workflow
+
+The current 3,482-image headline combines images from two sources. Before the result is used in a paper, CV, portfolio, or comparison table, the repository should additionally record:
+
+- exact dataset versions and download locations
+- dataset licenses and permitted uses
+- exact image counts contributed by each source
+- patient counts, where available
+- whether multiple slices belong to the same patient
+- duplicate-image and near-duplicate checks
+- any overlap between the two datasets
+- the exact train, validation, and evaluation split logic
+
+## Installation
+
+From the repository root:
 
 ```bash
-git clone https://github.com/Hamza09Hamza/MRI-scans.git
-cd MRI-scans
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Load Pre-trained Model
+Review [`../SETUP_GUIDE.md`](../SETUP_GUIDE.md) for the broader environment setup.
 
-```python
-from MRI.load_model import load_brain_classifier
+## Training
 
-model, device = load_brain_classifier()
-print("✓ Model loaded - Ready for inference")
+The primary training entry point is:
+
+```bash
+python train.py
 ```
 
-### 3. Classify a Single Image
+The training configuration is stored in `config.json`. Checkpoints are written under the configured output directory.
+
+To resume training where supported by the script:
+
+```bash
+python train.py --resume latest
+```
+
+Before training, confirm that the dataset directories match the paths in `config.json` and that no patient or duplicate image appears across training and evaluation partitions.
+
+## Evaluation
+
+The repository contains multiple evaluation paths:
+
+- [`../evaluation/evaluate.py`](../evaluation/evaluate.py) for general evaluation work
+- [`../evaluation/evaluate_hospital.py`](../evaluation/evaluate_hospital.py) for the legacy hospital-only workflow
+
+The hospital-only script writes a metrics JSON file and confusion matrix for the dataset it is given. Its existing `hospital_eval/metrics.json` belongs to the older 1,857-image run and should not be presented as the export for the current combined 3,482-image evaluation.
+
+A corrected combined evaluation should save all of the following from one run:
+
+```text
+evaluation source and version
+model checkpoint hash
+configuration
+image count
+patient count, when available
+class distribution
+overall accuracy
+balanced accuracy
+per-class precision/recall/F1
+sensitivity and specificity
+confusion matrix
+calibration results
+misclassified examples
+```
+
+The total in the confusion matrix must equal the documented evaluation count, and all summary metrics must be calculated from that same prediction set.
+
+## Inference example
+
+The model expects RGB input normalized with ImageNet statistics. A simplified example is:
 
 ```python
 from PIL import Image
 import torch
 from torchvision import transforms
 
-# Load image
-img = Image.open("brain_mri.jpg").convert("RGB")
-
-# Preprocess
-transform = transforms.Compose([
-    transforms.Resize((128, 128)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-])
-x = transform(img).unsqueeze(0).to(device)
-
-# Classify
-with torch.no_grad():
-    logits = model(x)
-    probabilities = torch.softmax(logits, dim=1)
-    class_idx = torch.argmax(probabilities, dim=1).item()
-
-classes = ["Normal", "Pituitary", "Meningioma", "Glioma"]
-print(f"Prediction: {classes[class_idx]}")
-print(f"Confidence: {probabilities[0, class_idx]:.2%}")
-```
-
----
-
-## Model Architecture
-
-### ResNet50 + Custom Classifier Head
-
-```
-Input: (batch, 3, 128, 128) - RGB brain MRI image
-  ↓
-ResNet50 Backbone (pretrained on ImageNet)
-  - Layer 1: 64 channels
-  - Layer 2: 256 channels
-  - Layer 3: 512 channels
-  - Layer 4: 2048 channels
-  ↓
-Global Average Pooling: 2048 features
-  ↓
-Custom Classifier Head:
-  - Dense(2048 → 1024) + BatchNorm + ReLU + Dropout(0.5)
-  - Dense(1024 → 512) + BatchNorm + ReLU + Dropout(0.5)
-  - Dense(512 → 4)  ← Final classification
-  ↓
-Output: (batch, 4) - Logits for [Normal, Pituitary, Meningioma, Glioma]
-```
-
-### Key Features
-
-- **Base Model:** ResNet50 (pretrained on ImageNet)
-- **Input Size:** 128 × 128 RGB images
-- **Parameters:** ~26M (mostly from ResNet backbone)
-- **Trainable Params:** ~1M (classifier head only)
-- **Activation:** ReLU with Dropout regularization
-
----
-
-## Performance Metrics
-
-### Test Set Results
-
-| Class | Accuracy | Precision | Recall | F1-Score |
-|-------|----------|-----------|--------|----------|
-| Normal | 99.7% | 1.000 | 0.996 | 0.998 |
-| Pituitary | 100% | 1.000 | 1.000 | 1.000 |
-| Meningioma | 99.1% | 0.985 | 0.992 | 0.988 |
-| Glioma | 92.7% | 0.927 | 0.927 | 0.927 |
-| **Overall** | **97.36%** | **0.978** | **0.979** | **0.978** |
-
-### Real Hospital Data Validation
-
-- **Dataset:** Epic & CSCR Hospital Dataset
-- **Total Images:** 1,857 test images
-- **Accuracy:** 97.36%
-- **Balanced Accuracy:** 97.87%
-
-### Confusion Matrix
-
-```
-                Predicted
-                Normal  Pituitary  Meningioma  Glioma
-Actual Normal    1847        0          0         1
-       Pituitary   0        562          0         0
-       Meningioma  3         0        614         5
-       Glioma     12         0          4       434
-```
-
----
-
-## Training Details
-
-### Datasets Used
-
-| Dataset | Type | Size | Purpose |
-|---------|------|------|---------|
-| Kaggle Brain Tumor | Classification | ~3,000 images | Training |
-| Epic & CSCR Hospital | Real clinical data | 1,857 images | Validation |
-
-### Training Configuration
-
-```python
-CONFIG = {
-    "model": "ResNet50",
-    "input_size": 128,
-    "batch_size": 64,
-    "learning_rate": 0.001,
-    "optimizer": "Adam",
-    "scheduler": "ReduceLROnPlateau",
-    "dropout_rate": 0.3,
-    "epochs": 60,
-    "loss_function": "CrossEntropyLoss",
-}
-```
-
-### Training Results
-
-- **Final Accuracy:** 94.3% (Kaggle test set)
-- **Hospital Validation:** 97.36%
-- **Overfitting Status:** ✓ Minimal (no overfitting detected)
-- **Training Time:** ~2-3 hours (GPU)
-
----
-
-## Model Specifications
-
-| Property | Value |
-|----------|-------|
-| **Name** | ResNet50-Brain-Classifier-v1 |
-| **Framework** | PyTorch |
-| **Input** | 128×128 RGB images |
-| **Classes** | 4 (Normal, Pituitary, Meningioma, Glioma) |
-| **Parameters** | 26M total, ~1M trainable |
-| **Output** | Logits + Softmax probabilities |
-| **Device** | CUDA, MPS (M1), CPU |
-| **Inference Speed** | ~10ms per image (GPU) |
-| **File Size** | ~100MB |
-
----
-
-## Usage Examples
-
-### Basic Classification
-
-```python
-from MRI.load_model import load_brain_classifier
-from PIL import Image
-import torch
-import torchvision.transforms as transforms
-
-# Load model
-model, device = load_brain_classifier()
-
-# Load and preprocess image
-img = Image.open("patient_mri.jpg").convert("RGB")
-transform = transforms.Compose([
-    transforms.Resize((128, 128)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-])
-x = transform(img).unsqueeze(0).to(device)
-
-# Predict
-with torch.no_grad():
-    logits = model(x)
-    probs = torch.softmax(logits, dim=1)
-
-classes = ["Normal", "Pituitary", "Meningioma", "Glioma"]
-pred_class = classes[probs.argmax(1).item()]
-confidence = probs.max().item()
-
-print(f"Prediction: {pred_class}")
-print(f"Confidence: {confidence:.2%}")
-print(f"All probabilities:")
-for cls, prob in zip(classes, probs[0]):
-    print(f"  {cls}: {prob:.2%}")
-```
-
-### Batch Inference (Multiple Images)
-
-```python
-from pathlib import Path
-import torch
-from PIL import Image
-import torchvision.transforms as transforms
 from MRI.load_model import load_brain_classifier
 
 model, device = load_brain_classifier()
+model.eval()
+
 transform = transforms.Compose([
     transforms.Resize((128, 128)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225],
+    ),
 ])
 
-# Load multiple images
-image_paths = list(Path("./data").glob("**/*.jpg"))
-images = [Image.open(p).convert("RGB") for p in image_paths]
-
-# Batch process
-batch = torch.stack([transform(img) for img in images]).to(device)
+image = Image.open("brain_mri.jpg").convert("RGB")
+batch = transform(image).unsqueeze(0).to(device)
 
 with torch.no_grad():
     logits = model(batch)
-    probs = torch.softmax(logits, dim=1)
-    predictions = torch.argmax(probs, dim=1)
+    probabilities = torch.softmax(logits, dim=1)
 
-classes = ["Normal", "Pituitary", "Meningioma", "Glioma"]
-for path, pred_idx, confidence in zip(image_paths, predictions, probs.max(1).values):
-    print(f"{path.name}: {classes[pred_idx]} ({confidence:.2%})")
+classes = ["glioma", "meningioma", "notumor", "pituitary"]
+predicted_index = probabilities.argmax(dim=1).item()
+print(classes[predicted_index], probabilities[0, predicted_index].item())
 ```
 
-### Integration with Medical Workflow
+Confirm the class order against the dataset loader and checkpoint used for the run. A class-order mismatch can produce apparently valid but incorrect predictions.
 
-```python
-import torch
-from PIL import Image
-from MRI.load_model import load_brain_classifier
-import json
-from datetime import datetime
+## What the reported accuracy does not prove
 
-def analyze_patient_scan(image_path, patient_id):
-    """Analyze scan and generate report."""
-    model, device = load_brain_classifier()
-    
-    # Load and predict
-    img = Image.open(image_path).convert("RGB")
-    # ... preprocessing ...
-    
-    with torch.no_grad():
-        logits = model(x)
-        probs = torch.softmax(logits, dim=1)
-    
-    # Generate structured report
-    classes = ["Normal", "Pituitary", "Meningioma", "Glioma"]
-    pred_class = classes[probs.argmax(1).item()]
-    
-    report = {
-        "patient_id": patient_id,
-        "timestamp": datetime.now().isoformat(),
-        "scan_file": image_path,
-        "prediction": pred_class,
-        "confidence": float(probs.max().item()),
-        "all_scores": {cls: float(prob) for cls, prob in zip(classes, probs[0])},
-        "recommendation": get_recommendation(pred_class)
-    }
-    
-    return report
+Approximately 97% accuracy on a combined image set does not, by itself, prove:
 
-def get_recommendation(prediction):
-    """Clinical recommendations based on prediction."""
-    recommendations = {
-        "Normal": "No abnormality detected. Routine follow-up.",
-        "Pituitary": "Pituitary tumor detected. Refer to endocrinology.",
-        "Meningioma": "Meningioma detected. Refer to neurosurgery.",
-        "Glioma": "Glioma detected. Urgent neurosurgery referral.",
-    }
-    return recommendations.get(prediction, "Unknown prediction")
+- clinical safety
+- patient-level generalization
+- performance on another hospital or scanner
+- absence of train/test leakage
+- robustness to different MRI sequences
+- reliable probability calibration
+- acceptable false-negative rates
+- readiness for deployment
 
-# Usage
-report = analyze_patient_scan("mri_scan.jpg", "PAT-12345")
-print(json.dumps(report, indent=2))
-```
+Image-level accuracy can be inflated when several related slices from one patient are split across training and testing. Medical evaluation should therefore use patient-level separation whenever patient identifiers are available.
 
----
+## Recommended next evaluation
 
-## Training Your Own Model
+The next trustworthy evaluation should:
 
-### Quick Retrain
+1. Freeze one model checkpoint and configuration.
+2. Build a manifest containing every image, source dataset, class, and patient identifier where available.
+3. Detect exact and perceptual duplicates across all partitions.
+4. Split by patient rather than by individual image.
+5. Keep one dataset or institution completely external when possible.
+6. Export one machine-readable metrics file and one matching confusion matrix.
+7. Report sensitivity, specificity, precision, recall, F1, calibration, and confidence intervals.
+8. Review representative false positives and false negatives.
 
-```bash
-python3 train.py
-```
+## Segmentation work
 
-### Resume Training (if interrupted)
+This repository also contains separate segmentation experiments. See:
 
-```bash
-# Auto-detects checkpoints and resumes
-python3 train.py --resume latest
-```
+- [`../SEGMENTATION_SETUP.md`](../SEGMENTATION_SETUP.md)
+- [`../SEGMENTATION/README.md`](../SEGMENTATION/README.md)
+- [`../train_3d_segmentation.py`](../train_3d_segmentation.py)
 
-### Configuration Options
+Classification and segmentation results must be evaluated separately. A good classification score does not establish accurate tumour localization or volume measurement.
 
-Edit `config.json`:
+## Responsible use
 
-```json
-{
-  "img_size": 128,
-  "batch_size": 64,
-  "learning_rate": 0.001,
-  "dropout_rate": 0.3,
-  "epochs": 60,
-  "num_workers": 4,
-  "pin_memory": true,
-  "device": "cuda"
-}
-```
+This project is intended for education and research. Medical images and metadata must be handled according to the applicable authorization, privacy, security, and data-governance requirements.
 
----
-
-## Model Weights & Files
-
-### Download Pre-trained Weights
-
-Weights are available in GitHub Releases (too large for Git):
-
-```bash
-cd MRI/weights
-wget https://github.com/Hamza09Hamza/MRI-scans/releases/download/v1.0/brain_tumor_classifier_best.pth
-```
-
-Or train your own:
-
-```bash
-python3 train.py
-cp models/brain_tumor_classifier_best.pth MRI/weights/
-```
-
-### File Structure
-
-```
-MRI/
-├── README.md                    ← This file
-├── QUICKSTART.md               ← One-page cheat sheet
-├── load_model.py               ← Model loader
-└── weights/
-    └── brain_tumor_classifier_best.pth   ← Model weights (~100MB)
-```
-
----
-
-## Hardware Requirements
-
-### Inference
-
-| Hardware | Speed | Memory |
-|----------|-------|--------|
-| GPU (CUDA) | ~10ms | 500MB |
-| GPU (MPS/M1) | ~15ms | 500MB |
-| CPU | ~100ms | 1.5GB |
-
-### Training
-
-| Hardware | Time (60 epochs) | Memory |
-|----------|-----------------|--------|
-| RTX 4090 | 20 minutes | 8GB |
-| RTX 3050 | 1.5 hours | 6GB |
-| M1 Pro | 2 hours | 16GB |
-| CPU | 8+ hours | 8GB |
-
----
-
-## Troubleshooting
-
-### Model Not Improving
-
-- **Check:** Learning rate (try 1e-5 or 1e-3)
-- **Check:** Data loading - run `python3 validate_data.py`
-- **Check:** Class imbalance - use weighted loss
-
-### GPU Out of Memory
-
-```python
-CONFIG["batch_size"] = 32  # Reduce from 64
-```
-
-### Slow Inference
-
-```python
-model = torch.jit.trace(model, dummy_input)
-# Use TorchScript for faster inference
-```
-
----
-
-## Model Export
-
-### Convert to ONNX (for production)
-
-```python
-import torch
-from utils.model import get_model
-
-model = get_model()
-model.load_state_dict(torch.load("MRI/weights/brain_tumor_classifier_best.pth"))
-model.eval()
-
-dummy = torch.randn(1, 3, 128, 128)
-torch.onnx.export(model, dummy, "classifier.onnx",
-                  input_names=["image"],
-                  output_names=["logits"])
-```
-
-### TorchScript (for C++ deployment)
-
-```python
-scripted = torch.jit.script(model)
-scripted.save("classifier.pt")
-```
-
----
-
-## References
-
-- **ResNet Paper:** https://arxiv.org/abs/1512.03385
-- **PyTorch ResNet:** https://pytorch.org/vision/stable/models.html
-- **Training Guide:** See `train.py` in repository
-
----
-
-## Citation
-
-```bibtex
-@article{he2015deep,
-  title={Deep residual learning for image recognition},
-  author={He, K and Zhang, X and Ren, S and Sun, J},
-  journal={CVPR},
-  year={2015}
-}
-```
-
----
-
-**Status:** ✓ Production Ready  
-**Accuracy:** 97.36% (Hospital Validation)  
-**Last Updated:** May 2024  
-**Version:** 1.0
+Do not describe this model as production-ready, clinical-grade, or externally validated unless those claims are supported by a documented study and review process.
